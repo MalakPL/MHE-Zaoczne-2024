@@ -12,11 +12,24 @@ def random_solution(n_cities):
     random.shuffle(permutation)
     return permutation
 
-def select_parents(population):
+def select_parents_top_half(population):
     half_population_size = len(population) // 2
     top_half = population[:half_population_size]
     parent1 = random.choice(top_half)
     parent2 = random.choice(top_half)
+    return parent1, parent2
+
+def tournament_selection(population, dist_matrix, tournament_size=5):
+    tournament = random.sample(population, tournament_size)
+    tournament.sort(key=lambda perm: route_length(perm, dist_matrix))
+    return tournament[0]
+
+def select_parents(population, dist_matrix, selection_method):
+    if selection_method == 'tournament':
+        parent1 = tournament_selection(population, dist_matrix)
+        parent2 = tournament_selection(population, dist_matrix)
+    else:
+        parent1, parent2 = select_parents_top_half(population)
     return parent1, parent2
 
 def crossover(parent1, parent2):
@@ -70,7 +83,7 @@ def mutate_reverse(permutation, mutation_rate):
         permutation[start:end+1] = reversed(permutation[start:end+1])
     return permutation
 
-def genetic_algorithm(points, dist_matrix, population_size, elite_size, mutation_rate, max_generations, crossover_method, mutation_method, termination_condition, max_stagnant_generations, show_plots=True):
+def genetic_algorithm(points, dist_matrix, population_size, elite_size, mutation_rate, max_generations, crossover_method, mutation_method, selection_method, termination_condition, max_stagnant_generations, show_plots=True):
     population = initial_population(len(points), population_size)
     generation = 0
     best_distance = float('inf')
@@ -102,7 +115,7 @@ def genetic_algorithm(points, dist_matrix, population_size, elite_size, mutation
         next_population = population[:elite_size]
 
         while len(next_population) < population_size:
-            parent1, parent2 = select_parents(population)
+            parent1, parent2 = select_parents(population, dist_matrix, selection_method)
             if crossover_method == 'alternate':
                 child = crossover_alternate(parent1, parent2)
             else:
@@ -142,6 +155,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_generations', type=int, default=500, help='Maximum number of generations')
     parser.add_argument('--crossover_method', type=str, default='default', choices=['default', 'alternate'], help='Crossover method')
     parser.add_argument('--mutation_method', type=str, default='swap', choices=['swap', 'reverse'], help='Mutation method')
+    parser.add_argument('--selection_method', type=str, default='top_half', choices=['top_half', 'tournament'], help='Selection method')
     parser.add_argument('--termination_condition', type=str, default='generations', choices=['generations', 'stagnation'], help='Termination condition')
     parser.add_argument('--max_stagnant_generations', type=int, default=100, help='Maximum number of stagnant generations for termination')
     parser.add_argument('--show_plots', action='store_true', help='Show plots during optimization')
@@ -155,9 +169,10 @@ if __name__ == "__main__":
     solution, distance, distances = genetic_algorithm(
         points, dist_matrix, args.population_size, args.elite_size,
         args.mutation_rate, args.max_generations, args.crossover_method,
-        args.mutation_method, args.termination_condition, args.max_stagnant_generations,
-        show_plots=args.show_plots
+        args.mutation_method, args.selection_method, args.termination_condition,
+        args.max_stagnant_generations, show_plots=args.show_plots
     )
 
     if not args.show_plots:
         plot_convergence_curve(distances, title='Genetic Algorithm Convergence Curve')
+    print(f"Execution time: {execution_time:.4f} seconds")
